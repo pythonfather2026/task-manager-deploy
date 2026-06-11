@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* акцент — кобальт */
+  --accent: #3a5a9e;
+  --accent-bright: #5277be;
+  --accent-deep: #2f4d8a;
+  --accent-wash: rgba(58, 90, 158, 0.1);
+  --accent-line: rgba(58, 90, 158, 0.24);
+  --on-accent: #ffffff;
+
+  /* светлая поверхность */
+  --bg: #f4f6fb;
+  --bg-2: #ffffff;
+  --bg-3: #eef1f8;
+  --fg: #18233f;
+  --fg-2: #45506e;
+  --fg-dim: #8b93a8;
+  --rule: rgba(24, 35, 63, 0.1);
+  --rule-2: rgba(24, 35, 63, 0.05);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-manrope), ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--accent-wash);
+  color: var(--fg);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--rule);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+/* Появление тоста (components/Toast.tsx) */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.toast-in {
+  animation: toast-in 0.18s ease-out;
+}
