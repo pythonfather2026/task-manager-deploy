@@ -16,6 +16,8 @@ import { ChatHeader } from '@/components/ChatHeader';
 import { MessageList } from '@/components/MessageList';
 import { Composer } from '@/components/Composer';
 import { Toast } from '@/components/Toast';
+import { TasksView } from '@/components/tasks/TasksView';
+import { useTasks } from '@/lib/use-tasks';
 
 /** Пауза перед началом «ответа» ассистента. */
 const REPLY_DELAY_MS = 800;
@@ -42,6 +44,12 @@ export function ChatApp() {
   // Чат, в котором ассистент сейчас «отвечает»; null — свободен.
   const [replyingChatId, setReplyingChatId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [view, setView] = useState<'chat' | 'tasks'>('chat');
+
+  const { tasks } = useTasks();
+  const pendingTasksCount = tasks.filter(
+    (t) => t.status !== 'done',
+  ).length;
 
   // Индекс следующего заготовленного ответа (выдаются по кругу).
   const replyIndexRef = useRef(0);
@@ -163,7 +171,13 @@ export function ChatApp() {
         onCreateChat={createChat}
         modelId={modelId}
         onModelChange={setModelId}
+        view={view}
+        onViewChange={setView}
+        pendingTasksCount={pendingTasksCount}
       />
+      {view === 'tasks' ? (
+        <TasksView />
+      ) : (
       <main className="flex h-full min-w-0 flex-1 flex-col">
         <ChatHeader
           title={activeChat?.title ?? 'Новый диалог'}
@@ -186,6 +200,7 @@ export function ChatApp() {
           sendLocked={replyingChatId !== null}
         />
       </main>
+      )}
       <Toast message={toast} />
     </div>
   );

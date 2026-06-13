@@ -15,6 +15,7 @@ import {
   FolderIcon,
   PlusIcon,
   SearchIcon,
+  TasksIcon,
 } from '@/components/icons';
 
 interface SidebarProps {
@@ -24,6 +25,9 @@ interface SidebarProps {
   onCreateChat: () => void;
   modelId: ModelId;
   onModelChange: (id: ModelId) => void;
+  view: 'chat' | 'tasks';
+  onViewChange: (view: 'chat' | 'tasks') => void;
+  pendingTasksCount: number;
 }
 
 export function Sidebar({
@@ -33,6 +37,9 @@ export function Sidebar({
   onCreateChat,
   modelId,
   onModelChange,
+  view,
+  onViewChange,
+  pendingTasksCount,
 }: SidebarProps) {
   const [query, setQuery] = useState('');
 
@@ -119,6 +126,31 @@ export function Sidebar({
           </button>
         </div>
 
+        {/* Задачи */}
+        <div className="border-b border-rule-2 px-3 py-2">
+          <button
+            type="button"
+            onClick={() => onViewChange('tasks')}
+            className={`flex w-full items-center justify-between gap-[9px] rounded-sm px-3 py-2 text-left text-[13.5px] font-semibold transition-colors ${
+              view === 'tasks'
+                ? 'bg-accent-wash text-fg'
+                : 'text-fg-2 hover:bg-bg-3'
+            }`}
+          >
+            <span className="flex items-center gap-[9px]">
+              <span className="flex flex-none text-fg-dim">
+                <TasksIcon size={16} />
+              </span>
+              Задачи
+            </span>
+            {pendingTasksCount > 0 && (
+              <span className="rounded-full bg-accent px-1.5 py-px text-[11px] font-semibold text-on-accent">
+                {pendingTasksCount}
+              </span>
+            )}
+          </button>
+        </div>
+
         {/* Список чатов */}
         <nav className="px-3 pb-3 pt-2.5" aria-label="Диалоги">
           {visibleChats.length === 0 && (
@@ -139,7 +171,7 @@ export function Sidebar({
                       key={chat.id}
                       type="button"
                       aria-current={active ? 'true' : undefined}
-                      onClick={() => onSelectChat(chat.id)}
+                      onClick={() => { onSelectChat(chat.id); onViewChange('chat'); }}
                       className={`relative mb-px flex w-full items-center justify-between gap-2.5 rounded-sm px-3 py-[9px] text-left text-sm transition-colors ${
                         active
                           ? 'bg-accent-wash font-semibold text-fg'
