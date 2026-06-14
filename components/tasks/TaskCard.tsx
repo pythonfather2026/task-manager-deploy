@@ -1,52 +1,38 @@
 'use client';
 
 import { useState } from 'react';
-import { type Task, type TaskStatus, STATUS_LABELS, STATUS_ORDER } from '@/lib/tasks';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { type Task, formatDate, isOverdue } from '@/lib/tasks';
 import { TaskForm } from '@/components/tasks/TaskForm';
-import { TrashIcon, PencilIcon, ChevronDownIcon } from '@/components/icons';
+import { PencilIcon, TrashIcon } from '@/components/icons';
 
 interface TaskCardProps {
   task: Task;
-  onUpdate: (data: { title: string; description?: string; deadline?: string }) => void;
+  onUpdate: (data: Partial<Omit<Task, 'id' | 'createdAt'>>) => void;
   onDelete: () => void;
-  onStatusChange: (status: TaskStatus) => void;
 }
 
-const STATUS_COLORS: Record<TaskStatus, string> = {
-  new: 'bg-bg-3 text-fg-2',
-  in_progress: 'bg-accent-wash text-accent',
-  done: 'bg-[rgba(16,185,129,0.1)] text-[#059669]',
-};
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-  });
-}
-
-function isOverdue(deadline: string) {
-  return new Date(deadline) < new Date(new Date().toDateString());
-}
-
-export function TaskCard({
-  task,
-  onUpdate,
-  onDelete,
-  onStatusChange,
-}: TaskCardProps) {
+export function TaskCard({ task, onUpdate, onDelete }: TaskCardProps) {
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [statusOpen, setStatusOpen] = useState(false);
+
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: task.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  const overdue = task.deadline ? isOverdue(task.deadline, task.status) : false;
 
   if (editing) {
     return (
       <TaskForm
         initial={task}
-        onSubmit={(data) => {
-          onUpdate(data);
-          setEditing(false);
-        }}
+        onSubmit={(data) => { onUpdate(data); setEditing(false); }}
         onCancel={() => setEditing(false)}
       />
     );
@@ -54,24 +40,17 @@ export function TaskCard({
 
   if (confirmDelete) {
     return (
-      <div className="rounded-md border border-rule bg-bg-2 p-4 shadow-xs">
-        <p className="mb-3 text-[13.5px] text-fg">
-          Удалить задачу{' '}
-          <span className="font-semibold">«{task.title}»</span>?
+      <div className="rounded-md border border-rule bg-bg-2 p-3 shadow-xs">
+        <p className="mb-3 text-[13px] text-fg">
+          Удалить <span className="font-semibold">«{task.title}»</span>?
         </p>
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => setConfirmDelete(false)}
-            className="rounded-sm px-3.5 py-2 text-[13px] font-medium text-fg-2 transition-colors hover:bg-bg-3"
-          >
+          <button type="button" onClick={() => setConfirmDelete(false)}
+            className="rounded-sm px-3 py-1.5 text-[12px] text-fg-2 hover:bg-bg-3">
             Отмена
           </button>
-          <button
-            type="button"
-            onClick={onDelete}
-            className="rounded-sm bg-[#ef4444] px-3.5 py-2 text-[13px] font-semibold text-white transition-all hover:bg-[#dc2626]"
-          >
+          <button type="button" onClick={onDelete}
+            className="rounded-sm bg-[#ef4444] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#dc2626]">
             Удалить
           </button>
         </div>
@@ -79,128 +58,85 @@ export function TaskCard({
     );
   }
 
-  const overdueDeadline =
-    task.deadline && task.status !== 'done' && isOverdue(task.deadline);
-
   return (
-    <div className="group rounded-md border border-rule bg-bg-2 p-4 shadow-xs transition-shadow hover:shadow-sm">
-      <div className="flex items-start gap-3">
-        {/* Чекбокс быстрой смены статуса */}
-        <button
-          type="button"
-          title={task.status === 'done' ? 'Снять отметку' : 'Отметить готовым'}
-          onClick={() =>
-            onStatusChange(task.status === 'done' ? 'new' : 'done')
-          }
-          className={`mt-px grid h-[18px] w-[18px] flex-none place-items-center rounded-[4px] border-2 transition-colors ${
-            task.status === 'done'
-              ? 'border-[#10b981] bg-[#10b981] text-white'
-              : 'border-rule hover:border-accent'
-          }`}
-        >
-          {task.status === 'done' && (
-            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-              <path
-                d="M2 6.5 5 9.5 10 3"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          )}
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="group relative rounded-[10px] border border-rule bg-bg-2 p-[10px] shadow-xs transition-shadow hover:shadow-sm"
+    >
+      {/* drag handle — вся карточка */}
+      <div {...attributes} {...listeners} className="absolute inset-0 cursor-grab rounded-[10px]" />
+
+      {/* Кнопки поверх drag-handle */}
+      <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <button type="button" onClick={() => setEditing(true)}
+          className="grid h-6 w-6 place-items-center rounded-xs bg-bg-2 text-fg-dim hover:bg-bg-3 hover:text-fg">
+          <PencilIcon size={12} />
         </button>
+        <button type="button" onClick={() => setConfirmDelete(true)}
+          className="grid h-6 w-6 place-items-center rounded-xs bg-bg-2 text-fg-dim hover:bg-bg-3 hover:text-[#ef4444]">
+          <TrashIcon size={12} />
+        </button>
+      </div>
 
-        <div className="min-w-0 flex-1">
-          <p
-            className={`text-[14px] font-semibold leading-snug ${
-              task.status === 'done' ? 'text-fg-dim line-through' : 'text-fg'
-            }`}
-          >
-            {task.title}
-          </p>
-          {task.description && (
-            <p className="mt-1 text-[13px] leading-relaxed text-fg-2">
-              {task.description}
-            </p>
+      {/* Заголовок */}
+      <p className={`mb-2 pr-14 text-[12.5px] font-medium leading-snug ${task.status === 'done' ? 'text-fg-dim line-through' : 'text-fg'}`}>
+        {task.title}
+      </p>
+
+      {/* Даты */}
+      <div className="mb-[10px] flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="flex items-center gap-1 text-[10.5px] text-fg-dim">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          {formatDate(task.createdAt)}
+        </span>
+        {task.deadline && (
+          <span className={`flex items-center gap-1 text-[10.5px] font-medium ${overdue ? 'text-[#ef4444]' : 'text-fg-dim'}`}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            {overdue ? '⚠ ' : ''}до {formatDate(task.deadline)}
+          </span>
+        )}
+        {task.status === 'done' && task.completedAt && (
+          <span className="flex items-center gap-1 text-[10.5px] text-[#10b981]">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            готово {formatDate(task.completedAt)}
+          </span>
+        )}
+      </div>
+
+      {/* Футер */}
+      <div className="flex items-center justify-between border-t border-rule-2 pt-[7px]">
+        <div className="flex items-center gap-1.5">
+          {task.assignee ? (
+            <>
+              <div className="grid h-5 w-5 place-items-center rounded-full text-[8px] font-bold"
+                style={{ background: task.assigneeColor, color: task.assigneeTextColor }}>
+                {task.assignee}
+              </div>
+              <span className="text-[11px] text-fg-dim">{task.assigneeName}</span>
+            </>
+          ) : (
+            <span className="text-[11px] text-fg-dim">Не назначено</span>
           )}
-
-          <div className="mt-2.5 flex flex-wrap items-center gap-2">
-            {/* Статус */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setStatusOpen((v) => !v)}
-                className={`flex items-center gap-1 rounded-pill px-2.5 py-0.5 text-[12px] font-semibold transition-opacity hover:opacity-80 ${STATUS_COLORS[task.status]}`}
-              >
-                {STATUS_LABELS[task.status]}
-                <ChevronDownIcon size={12} />
-              </button>
-              {statusOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setStatusOpen(false)}
-                  />
-                  <div className="absolute left-0 top-full z-20 mt-1 w-36 rounded-sm border border-rule bg-bg-2 py-1 shadow-md">
-                    {STATUS_ORDER.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => {
-                          onStatusChange(s);
-                          setStatusOpen(false);
-                        }}
-                        className={`flex w-full items-center gap-2 px-3 py-1.5 text-[13px] transition-colors hover:bg-bg-3 ${
-                          s === task.status
-                            ? 'font-semibold text-accent'
-                            : 'text-fg-2'
-                        }`}
-                      >
-                        {STATUS_LABELS[s]}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Дедлайн */}
-            {task.deadline && (
-              <span
-                className={`text-[12px] font-medium ${
-                  overdueDeadline ? 'text-[#ef4444]' : 'text-fg-dim'
-                }`}
-              >
-                {overdueDeadline ? '⚠ ' : ''}до {formatDate(task.deadline)}
-              </span>
-            )}
-
-            {/* Дата создания */}
-            <span className="text-[12px] text-fg-dim">
-              {formatDate(task.createdAt)}
-            </span>
-          </div>
         </div>
-
-        {/* Действия */}
-        <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <button
-            type="button"
-            title="Редактировать"
-            onClick={() => setEditing(true)}
-            className="grid h-7 w-7 place-items-center rounded-xs text-fg-dim transition-colors hover:bg-bg-3 hover:text-fg"
-          >
-            <PencilIcon size={14} />
-          </button>
-          <button
-            type="button"
-            title="Удалить"
-            onClick={() => setConfirmDelete(true)}
-            className="grid h-7 w-7 place-items-center rounded-xs text-fg-dim transition-colors hover:bg-bg-3 hover:text-[#ef4444]"
-          >
-            <TrashIcon size={14} />
-          </button>
+        <div className="flex items-center gap-2">
+          {task.urgent && (
+            <span className="rounded-[4px] bg-[#fee2e2] px-1.5 py-px text-[10px] font-semibold text-[#991b1b]">
+              🔥 срочно
+            </span>
+          )}
+          <span className="flex items-center gap-1 text-[11px] text-fg-dim">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            {task.commentsCount}
+          </span>
         </div>
       </div>
     </div>

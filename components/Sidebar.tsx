@@ -18,6 +18,14 @@ import {
   TasksIcon,
 } from '@/components/icons';
 
+interface TaskStats {
+  total: number;
+  in_progress: number;
+  review: number;
+  overdue: number;
+  done: number;
+}
+
 interface SidebarProps {
   chats: Chat[];
   activeChatId: string;
@@ -27,7 +35,29 @@ interface SidebarProps {
   onModelChange: (id: ModelId) => void;
   view: 'chat' | 'tasks';
   onViewChange: (view: 'chat' | 'tasks') => void;
-  pendingTasksCount: number;
+  taskStats: TaskStats;
+}
+
+function Donut({ pct, color }: { pct: number; color: string }) {
+  const r = 10;
+  const circ = 2 * Math.PI * r;
+  const filled = (pct / 100) * circ;
+  return (
+    <svg width="28" height="28" viewBox="0 0 28 28">
+      <circle cx="14" cy="14" r={r} fill="none" stroke="#e5e7eb" strokeWidth="4" />
+      <circle
+        cx="14" cy="14" r={r} fill="none"
+        stroke={color} strokeWidth="4"
+        strokeDasharray={`${filled} ${circ - filled}`}
+        strokeDashoffset={circ / 4}
+        strokeLinecap="round"
+        transform="rotate(-90 14 14)"
+      />
+      <text x="14" y="18" textAnchor="middle" fontSize="7" fontWeight="500" fill={color}>
+        {pct}%
+      </text>
+    </svg>
+  );
 }
 
 export function Sidebar({
@@ -39,14 +69,28 @@ export function Sidebar({
   onModelChange,
   view,
   onViewChange,
-  pendingTasksCount,
+  taskStats,
 }: SidebarProps) {
   const [query, setQuery] = useState('');
+  const [tasksOpen, setTasksOpen] = useState(true);
 
   const normalized = query.trim().toLowerCase();
   const visibleChats = normalized
     ? chats.filter((c) => c.title.toLowerCase().includes(normalized))
     : chats;
+
+  const pct = (n: number) =>
+    taskStats.total === 0 ? 0 : Math.round((n / taskStats.total) * 100);
+
+  const donePct = pct(taskStats.done);
+  const progressWidth = donePct;
+
+  const statRows = [
+    { label: 'В работе', value: taskStats.in_progress, color: '#3b82f6', pct: pct(taskStats.in_progress) },
+    { label: 'На проверке', value: taskStats.review, color: '#8b5cf6', pct: pct(taskStats.review) },
+    { label: 'Просрочено', value: taskStats.overdue, color: '#ef4444', pct: pct(taskStats.overdue) },
+    { label: 'Выполнено', value: taskStats.done, color: '#10b981', pct: donePct },
+  ];
 
   return (
     <aside
@@ -126,29 +170,73 @@ export function Sidebar({
           </button>
         </div>
 
-        {/* Задачи */}
-        <div className="border-b border-rule-2 px-3 py-2">
+        {/* ── Задачи ── */}
+        <div className="border-b border-rule-2">
+          {/* Заголовок — кликабельный */}
           <button
             type="button"
-            onClick={() => onViewChange('tasks')}
-            className={`flex w-full items-center justify-between gap-[9px] rounded-sm px-3 py-2 text-left text-[13.5px] font-semibold transition-colors ${
-              view === 'tasks'
-                ? 'bg-accent-wash text-fg'
-                : 'text-fg-2 hover:bg-bg-3'
+            onClick={() => {
+              onViewChange('tasks');
+              setTasksOpen((v) => !v);
+            }}
+            className={`flex w-full items-center gap-2 px-5 py-2.5 text-left transition-colors ${
+              view === 'tasks' ? 'bg-accent-wash' : 'hover:bg-bg-3'
             }`}
           >
-            <span className="flex items-center gap-[9px]">
-              <span className="flex flex-none text-fg-dim">
-                <TasksIcon size={16} />
-              </span>
-              Задачи
+            <span className="flex text-fg-dim">
+              <TasksIcon size={15} />
             </span>
-            {pendingTasksCount > 0 && (
-              <span className="rounded-full bg-accent px-1.5 py-px text-[11px] font-semibold text-on-accent">
-                {pendingTasksCount}
-              </span>
+            <span className="flex-1 text-[13.5px] font-semibold text-fg">Задачи</span>
+            {taskStats.total > 0 && (
+              <span className="text-[11px] text-fg-dim">{taskStats.total}</span>
             )}
+            <ChevronDownIcon
+              size={13}
+              className={`text-fg-dim transition-transform ${tasksOpen ? 'rotate-180' : ''}`}
+            />
           </button>
+
+          {/* Статистика */}
+          {tasksOpen && taskStats.total > 0 && (
+            <div className="px-4 pb-3 pt-1">
+              {/* Общий прогресс */}
+              <div className="mb-2.5">
+                <div className="mb-1 flex justify-between text-[11px]">
+                  <span className="text-fg-dim">Всего задач</span>
+                  <span className="font-medium text-fg">{taskStats.total}</span>
+                </div>
+                <div className="h-[3px] w-full overflow-hidden rounded-full bg-bg-3">
+                  <div
+                    className="h-full rounded-full bg-[#10b981] transition-all"
+                    style={{ width: `${progressWidth}%` }}
+                  />
+                </div>
+                <div className="mt-1 text-right text-[10.5px] text-[#10b981]">
+                  {donePct}% выполнено
+                </div>
+              </div>
+
+              {/* Строки статистики */}
+              <div className="flex flex-col gap-1">
+                {statRows.map((row) => (
+                  <div key={row.label} className="flex items-center justify-between">
+                    <span className="text-[12px] text-fg-2">{row.label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="min-w-[14px] text-right text-[12px] font-medium text-fg">
+                        {row.value}
+                      </span>
+                      <Donut pct={row.pct} color={row.color} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Пустое состояние */}
+          {tasksOpen && taskStats.total === 0 && (
+            <p className="px-5 pb-3 text-[12px] text-fg-dim">Задач пока нет</p>
+          )}
         </div>
 
         {/* Список чатов */}

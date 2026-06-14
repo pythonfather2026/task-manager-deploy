@@ -6,6 +6,8 @@ import {
   type TaskStatus,
   loadTasks,
   saveTasks,
+  loadActiveBoard,
+  saveActiveBoard,
 } from '@/lib/tasks';
 
 function uid() {
@@ -14,26 +16,49 @@ function uid() {
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [activeBoardId, setActiveBoardIdState] = useState<string>('content');
 
-  // Загружаем из localStorage один раз при монтировании.
   useEffect(() => {
     setTasks(loadTasks());
+    setActiveBoardIdState(loadActiveBoard());
   }, []);
 
-  // Сохраняем в localStorage при каждом изменении.
   useEffect(() => {
     saveTasks(tasks);
   }, [tasks]);
 
+  const setActiveBoardId = useCallback((id: string) => {
+    setActiveBoardIdState(id);
+    saveActiveBoard(id);
+  }, []);
+
   const createTask = useCallback(
-    (data: { title: string; description?: string; deadline?: string }) => {
+    (data: {
+      title: string;
+      description?: string;
+      deadline?: string;
+      urgent?: boolean;
+      assignee?: string;
+      assigneeColor?: string;
+      assigneeTextColor?: string;
+      assigneeName?: string;
+      status?: TaskStatus;
+      boardId?: string;
+    }) => {
       const task: Task = {
         id: uid(),
         title: data.title.trim(),
         description: data.description?.trim() || undefined,
-        status: 'new',
+        status: data.status ?? 'new',
+        urgent: data.urgent ?? false,
+        assignee: data.assignee,
+        assigneeColor: data.assigneeColor,
+        assigneeTextColor: data.assigneeTextColor,
+        assigneeName: data.assigneeName,
         createdAt: new Date().toISOString(),
         deadline: data.deadline || undefined,
+        commentsCount: 0,
+        boardId: data.boardId ?? 'content',
       };
       setTasks((prev) => [task, ...prev]);
       return task;
@@ -54,11 +79,28 @@ export function useTasks() {
     setTasks((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const setStatus = useCallback((id: string, status: TaskStatus) => {
+  const moveTask = useCallback((id: string, status: TaskStatus) => {
     setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status } : t)),
+      prev.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              status,
+              completedAt:
+                status === 'done' ? new Date().toISOString() : undefined,
+            }
+          : t,
+      ),
     );
   }, []);
 
-  return { tasks, createTask, updateTask, deleteTask, setStatus };
+  return {
+    tasks,
+    activeBoardId,
+    setActiveBoardId,
+    createTask,
+    updateTask,
+    deleteTask,
+    moveTask,
+  };
 }
