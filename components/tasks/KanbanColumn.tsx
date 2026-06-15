@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { type Task, type TaskStatus, STATUS_LABELS, STATUS_EMOJI } from '@/lib/tasks';
+import { type TaskStatus, STATUS_LABELS, STATUS_EMOJI } from '@/lib/tasks';
+import { type Task } from '@/lib/use-tasks';
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { TaskForm } from '@/components/tasks/TaskForm';
 import { PlusIcon } from '@/components/icons';
@@ -12,8 +13,8 @@ interface KanbanColumnProps {
   status: TaskStatus;
   tasks: Task[];
   boardId: string;
-  onCreateTask: (data: Parameters<React.ComponentProps<typeof TaskForm>['onSubmit']>[0]) => void;
-  onUpdateTask: (id: string, data: Partial<Omit<Task, 'id' | 'createdAt'>>) => void;
+  onCreateTask: (data: Partial<Task> & { title: string }) => void;
+  onUpdateTask: (id: string, data: Partial<Task>) => void;
   onDeleteTask: (id: string) => void;
   isEven: boolean;
 }
@@ -22,7 +23,6 @@ export function KanbanColumn({
   status, tasks, boardId, onCreateTask, onUpdateTask, onDeleteTask, isEven,
 }: KanbanColumnProps) {
   const [adding, setAdding] = useState(false);
-
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
   return (
@@ -32,7 +32,6 @@ export function KanbanColumn({
         isEven ? 'bg-bg' : 'bg-bg-2'
       } ${isOver ? 'bg-accent-wash' : ''}`}
     >
-      {/* Заголовок колонки */}
       <div className="mb-2.5 flex items-center justify-between">
         <span className="text-[12px] font-medium text-fg-2">
           {STATUS_EMOJI[status]} {STATUS_LABELS[status]}
@@ -42,7 +41,6 @@ export function KanbanColumn({
         </span>
       </div>
 
-      {/* Карточки */}
       <div className="flex flex-1 flex-col gap-[7px]">
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
@@ -55,18 +53,15 @@ export function KanbanColumn({
           ))}
         </SortableContext>
 
-        {/* Форма добавления в колонку */}
         {adding && (
           <TaskForm
             defaultStatus={status}
-            defaultBoardId={boardId}
-            onSubmit={(data) => { onCreateTask(data); setAdding(false); }}
+            onSubmit={(data) => { onCreateTask({ ...data, board_id: boardId }); setAdding(false); }}
             onCancel={() => setAdding(false)}
           />
         )}
       </div>
 
-      {/* Кнопка добавить */}
       {!adding && (
         <button
           type="button"
