@@ -4,28 +4,28 @@ import { authOptions } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 import { sendTelegramNotification } from '@/lib/telegram';
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+type Params = Promise<{ id: string }>;
+
+export async function PATCH(req: NextRequest, { params }: { params: Params }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const { id } = await params;
   const user = session.user as any;
   const body = await req.json();
 
-  // Получаем задачу
   const { data: task } = await supabaseAdmin
     .from('tasks')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
 
   if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  // Employee может редактировать только свои задачи
   if (user.role === 'employee' && task.created_by !== user.id && task.assignee_id !== user.id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // Employee не может переназначать исполнителя на другого
   if (user.role === 'employee' && body.assignee_id && body.assignee_id !== user.id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -44,17 +44,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { data, error } = await supabaseAdmin
     .from('tasks')
     .update(patch)
-    .eq('id', params.id)
+    .eq('id', id)
     .select(`*, assignee:users!tasks_assignee_id_fkey(id,name,initials,color_bg,color_text)`)
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Уведомление при смене статуса на review
   if (body.status === 'review') {
     const { data: owner } = await supabaseAdmin
       .from('users')
-      .select('telegram_chat_id, name')
+      .select('telegram_chat_id')
       .eq('role', 'owner')
       .single();
 
@@ -69,17 +68,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json(data);
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Params }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const { id } = await params;
   const user = session.user as any;
 
   if (user.role === 'employee') {
     const { data: task } = await supabaseAdmin
       .from('tasks')
       .select('created_by')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (task?.created_by !== user.id) {
@@ -87,7 +87,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     }
   }
 
-  const { error } = await supabaseAdmin.from('tasks').delete().eq('id', params.id);
+  const { error } = await supabaseAdmin.from('tasks').delete().eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
