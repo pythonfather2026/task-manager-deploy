@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Manrope } from 'next/font/google';
 import './globals.css';
+import { Providers } from '@/components/Providers';
 
 const manrope = Manrope({
   subsets: ['latin', 'cyrillic'],
@@ -8,18 +9,16 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: 'AI Chat',
-  description: 'Тестовое задание: рабочий AI-чат на мок-данных',
+  title: 'Task Manager',
+  description: 'Таск-менеджер для команды',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ru" className={manrope.variable}>
-      <body>{children}</body>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

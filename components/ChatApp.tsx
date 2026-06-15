@@ -17,8 +17,9 @@ import { MessageList } from '@/components/MessageList';
 import { Composer } from '@/components/Composer';
 import { Toast } from '@/components/Toast';
 import { TasksView } from '@/components/tasks/TasksView';
-import { useTasks } from '@/lib/use-tasks';
-import { isOverdue } from '@/lib/tasks';
+import { useTaskStats } from '@/lib/use-task-stats';
+
+
 
 const REPLY_DELAY_MS = 800;
 const TYPE_WORD_MS = 55;
@@ -39,19 +40,9 @@ export function ChatApp() {
   const [replyingChatId, setReplyingChatId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [view, setView] = useState<'chat' | 'tasks'>('chat');
+  const taskStats = useTaskStats();
 
-  const { tasks } = useTasks();
 
-  const taskStats = useMemo(() => {
-    const total = tasks.length;
-    const in_progress = tasks.filter((t) => t.status === 'in_progress').length;
-    const review = tasks.filter((t) => t.status === 'review').length;
-    const done = tasks.filter((t) => t.status === 'done').length;
-    const overdue = tasks.filter(
-      (t) => t.deadline && isOverdue(t.deadline, t.status),
-    ).length;
-    return { total, in_progress, review, overdue, done };
-  }, [tasks]);
 
   const replyIndexRef = useRef(0);
   const timersRef = useRef<{

@@ -1,106 +1,90 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import {
-  type Task,
-  type TaskStatus,
-  loadTasks,
-  saveTasks,
-  loadActiveBoard,
-  saveActiveBoard,
-} from '@/lib/tasks';
+import { useSession } from 'next-auth/react';
 
-function uid() {
-  return crypto.randomUUID();
+export interface TaskUser {
+  id: string;
+  name: string;
+  initials: string;
+  color_bg: string;
+  color_text: string;
 }
 
-export function useTasks() {
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  status: 'new' | 'in_progress' | 'review' | 'done';
+  urgent: boolean;
+  board_id: string;
+  assignee_id?: string;
+  assignee?: TaskUser;
+  created_by: string;
+  deadline?: string;
+  completed_at?: string;
+  created_at: string;
+  commentsCount?: number;
+}
+
+export function useTasks(boardId: string) {
+  const { data: session } = useSession();
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [activeBoardId, setActiveBoardIdState] = useState<string>('content');
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    setTasks(loadTasks());
-    setActiveBoardIdState(loadActiveBoard());
-  }, []);
+  const fetchTasks = useCallback(async () => {
+    if (!session) return;
+    setLoading(true);
+    const res = await fetch(`/api/tasks?boardId=${boardId}`);
+    if (res.ok) setTasks(await res.json());
+    setLoading(false);
+  }, [boardId, session]);
 
-  useEffect(() => {
-    saveTasks(tasks);
-  }, [tasks]);
+  useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
-  const setActiveBoardId = useCallback((id: string) => {
-    setActiveBoardIdState(id);
-    saveActiveBoard(id);
-  }, []);
-
-  const createTask = useCallback(
-    (data: {
-      title: string;
-      description?: string;
-      deadline?: string;
-      urgent?: boolean;
-      assignee?: string;
-      assigneeColor?: string;
-      assigneeTextColor?: string;
-      assigneeName?: string;
-      status?: TaskStatus;
-      boardId?: string;
-    }) => {
-      const task: Task = {
-        id: uid(),
-        title: data.title.trim(),
-        description: data.description?.trim() || undefined,
-        status: data.status ?? 'new',
-        urgent: data.urgent ?? false,
-        assignee: data.assignee,
-        assigneeColor: data.assigneeColor,
-        assigneeTextColor: data.assigneeTextColor,
-        assigneeName: data.assigneeName,
-        createdAt: new Date().toISOString(),
-        deadline: data.deadline || undefined,
-        commentsCount: 0,
-        boardId: data.boardId ?? 'content',
-      };
+  const createTask = useCallback(async (data: Partial<Task> & { title: string }) => {
+    const res = await fetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, board_id: boardId }),
+    });
+    if (res.ok) {
+      const task = await res.json();
       setTasks((prev) => [task, ...prev]);
       return task;
-    },
-    [],
-  );
+    }
+  }, [boardId]);
 
-  const updateTask = useCallback(
-    (id: string, patch: Partial<Omit<Task, 'id' | 'createdAt'>>) => {
-      setTasks((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-      );
-    },
-    [],
-  );
-
-  const deleteTask = useCallback((id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+  const updateTask = useCallback(async (id: string, patch: Partial<Task>) => {
+    const res = await fetch(`/api/tasks/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)));
+    }
   }, []);
 
-  const moveTask = useCallback((id: string, status: TaskStatus) => {
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              status,
-              completedAt:
-                status === 'done' ? new Date().toISOString() : undefined,
-            }
-          : t,
-      ),
-    );
+  const deleteTask = useCallback(async (id: string) => {
+    const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+    if (res.ok) setTasks((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  return {
-    tasks,
-    activeBoardId,
-    setActiveBoardId,
-    createTask,
-    updateTask,
-    deleteTask,
-    moveTask,
-  };
+  const moveTask = useCallback(async (id: string, status: Task['status']) => {
+    await updateTask(id, { status });
+  }, [updateTask]);
+
+  return { tasks, loading, createTask, updateTask, deleteTask, moveTask, refetch: fetchTasks };
+}
+
+export function useUsers() {
+  const [users, setUsers] = useState<(TaskUser & { role: string; telegram_chat_id?: string })[]>([]);
+
+  useEffect(() => {
+    fetch('/api/users').then((r) => r.json()).then(setUsers).catch(() => {});
+  }, []);
+
+  return users;
 }

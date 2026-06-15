@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { signOut, useSession } from 'next-auth/react';
 import {
   GROUP_ORDER,
   PROJECTS,
@@ -73,6 +74,8 @@ export function Sidebar({
 }: SidebarProps) {
   const [query, setQuery] = useState('');
   const [tasksOpen, setTasksOpen] = useState(true);
+  const { data: session } = useSession();
+  const sessionUser = session?.user as any;
 
   const normalized = query.trim().toLowerCase();
   const visibleChats = normalized
@@ -289,20 +292,32 @@ export function Sidebar({
 
       {/* Пользователь */}
       <div className="flex items-center gap-[11px] border-t border-rule px-4 py-3">
-        <span className="grid h-8 w-8 flex-none place-items-center rounded-full border border-accent-line bg-accent-wash text-[13px] font-bold leading-none text-accent-deep">
-          {USER.initials}
+        <span
+          className="grid h-8 w-8 flex-none place-items-center rounded-full text-[13px] font-bold leading-none"
+          style={{ background: sessionUser?.colorBg ?? '#ede9fe', color: sessionUser?.colorText ?? '#4c1d95' }}
+        >
+          {sessionUser?.initials ?? '??'}
         </span>
         <span className="min-w-0 flex-1 leading-tight">
           <span className="block truncate text-[13.5px] font-semibold">
-            {USER.name}
+            {sessionUser?.name ?? 'Пользователь'}
           </span>
           <span className="block truncate text-xs text-fg-dim">
-            {USER.role}
+            {sessionUser?.role === 'owner' ? 'Владелец' : 'Сотрудник'}
           </span>
         </span>
-        <span className="flex-none text-fg-dim">
-          <ChevronDownIcon size={16} />
-        </span>
+        <button
+          type="button"
+          title="Выйти"
+          onClick={() => signOut({ callbackUrl: '/login' })}
+          className="flex-none rounded-xs p-1 text-fg-dim transition-colors hover:bg-bg-3 hover:text-fg"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
       </div>
     </aside>
   );
